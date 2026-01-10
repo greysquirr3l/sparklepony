@@ -1,0 +1,42 @@
+// Email blacklist configuration
+// Terms and patterns that indicate non-personal email addresses
+(
+    // Terms found anywhere in email that indicate automated/system emails
+    blacklisted_terms: [
+        "unsubscribe",
+        "unsub",
+        "abuse",
+        "amazonses",
+        "marketoemail",
+        "mktoemail.com",
+        "bounce",
+        "noreply",
+        "donotreply",
+        "optout",
+        "businesstrack.com",
+        "mktomail.com",
+        "messaging.squareup.com",
+        "dropbox.com",
+        "squarespace-mail.com",
+        "arksf.com",
+    ],
+
+    // Patterns commonly found in test or auto-generated emails
+    bad_patterns: [
+        "test@",
+        "@test.",
+        "example.com",
+        "example.net",
+        "example.org",
+        "user@",
+        "sample@",
+        "demo@",
+        "noreply@",
+        "no-reply@",
+        "donotreply@",
+        "invalid@",
+        "someone@",
+        "anybody@",
+        "nobody@",
+    ],
+)

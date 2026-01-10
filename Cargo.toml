@@ -1,0 +1,67 @@
+[package]
+name = "pst_weee"
+version = "0.2.0"
+edition = "2021"
+authors = ["Nick Campbell"]
+description = "High-performance email contact extractor for Microsoft Outlook PST files"
+license = "MIT"
+repository = "https://github.com/greysquirr3l/pst_weee"
+readme = "README.md"
+keywords = ["pst", "outlook", "email", "extractor", "contacts"]
+categories = ["command-line-utilities", "email"]
+
+[dependencies]
+# PST parsing - native Rust library
+outlook-pst = "1.1"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Parallelism
+rayon = "1.8"
+dashmap = "6.1.0"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ron = "0.12.0"
+
+# CSV output
+csv = "1.3"
+
+# System monitoring
+sysinfo = "0.37.2"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# Error handling
+thiserror = "2.0.17"
+anyhow = "1"
+
+# Validation
+regex = "1"
+
+# Progress display
+indicatif = "0.18.3"
+
+# HTTP for TLD download
+reqwest = { version = "0.13.1", features = ["blocking"] }
+
+[dev-dependencies]
+tempfile = "3"
+criterion = "0.8.1"
+
+[[bin]]
+name = "pst_weee"
+path = "src/main.rs"
+
+[[bench]]
+name = "extraction"
+harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

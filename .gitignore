@@ -1,0 +1,41 @@
+reference_projects/
+.mcp.json
+.vscode/
+.serena/
+docs/rust/
+# Rust / Cargo
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Debug files
+*.pdb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# IDEs and editors
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test/coverage
+*.profraw
+*.profdata
+lcov.info
+tarpaulin-report.html
+
+# Logs
+*.log
