@@ -26,15 +26,14 @@ impl TldFilter {
     /// # Arguments
     /// * `cache_dir` - Directory to cache the TLD list
     /// * `disabled` - If true, all TLDs are considered valid
-    ///
-    /// # Errors
-    /// Returns an error if the TLD list cannot be downloaded or loaded.
-    pub fn new(cache_dir: &Path, disabled: bool) -> Result<Self> {
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)]
+    pub fn new(cache_dir: &Path, disabled: bool) -> Self {
         if disabled {
-            return Ok(Self {
+            return Self {
                 valid_tlds: HashSet::new(),
                 disabled: true,
-            });
+            };
         }
 
         let cache_path = cache_dir.join(TLD_CACHE_FILE);
@@ -48,7 +47,7 @@ impl TldFilter {
             match filter.load_from_file(&cache_path) {
                 Ok(()) => {
                     debug!("Loaded {} TLDs from cache", filter.valid_tlds.len());
-                    return Ok(filter);
+                    return filter;
                 }
                 Err(e) => {
                     warn!("Failed to load TLD cache: {e}");
@@ -72,7 +71,7 @@ impl TldFilter {
             }
         }
 
-        Ok(filter)
+        filter
     }
 
     /// Check if a TLD is valid
@@ -338,7 +337,7 @@ mod tests {
     #[test]
     fn test_disabled_filter() {
         let dir = tempdir().unwrap();
-        let filter = TldFilter::new(dir.path(), true).unwrap();
+        let filter = TldFilter::new(dir.path(), true);
         assert!(filter.is_valid_tld("user@example.anything"));
     }
 

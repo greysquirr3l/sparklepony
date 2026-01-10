@@ -54,6 +54,7 @@ cargo audit
 ### Resource Limits
 
 The tool includes resource management features to prevent:
+
 - CPU exhaustion
 - Memory exhaustion
 - Disk space issues

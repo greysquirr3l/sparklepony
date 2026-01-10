@@ -46,6 +46,12 @@ pub struct Config {
 
     /// Maximum username length for email filtering
     pub max_username_length: usize,
+
+    /// Skip extracting sender email addresses
+    pub skip_senders: bool,
+
+    /// Skip extracting recipient email addresses (To, CC, BCC)
+    pub skip_recipients: bool,
 }
 
 impl Default for Config {
@@ -64,6 +70,8 @@ impl Default for Config {
             extract_attachments: false,
             chunk_size_mb: 32,
             max_username_length: 20,
+            skip_senders: false,
+            skip_recipients: false,
         }
     }
 }
@@ -84,6 +92,8 @@ impl From<Args> for Config {
             extract_attachments: args.extract_attachments,
             chunk_size_mb: args.chunk_size,
             max_username_length: args.max_username_length,
+            skip_senders: args.skip_senders,
+            skip_recipients: args.skip_recipients,
         }
     }
 }

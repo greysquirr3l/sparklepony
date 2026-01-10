@@ -11,7 +11,11 @@ use outlook_pst::ltp::prop_context::PropertyValue;
 use outlook_pst::messaging::folder::UnicodeFolder;
 use outlook_pst::messaging::message::UnicodeMessage;
 use outlook_pst::messaging::store::{EntryId, UnicodeStore};
+use outlook_pst::ndb::header::Header;
 use outlook_pst::ndb::node_id::{NodeId, NodeIdType};
+use outlook_pst::ndb::page::UnicodeBlockBTree;
+use outlook_pst::ndb::root::Root;
+use outlook_pst::PstFile;
 
 use outlook_pst::UnicodePstFile;
 use std::collections::HashMap;
@@ -33,6 +37,10 @@ pub struct PstExtractor {
     /// Maximum username length for filtering
     #[allow(dead_code)]
     max_username_length: usize,
+    /// Whether to extract sender addresses
+    extract_senders: bool,
+    /// Whether to extract recipient addresses (To, CC, BCC)
+    extract_recipients: bool,
 }
 
 impl PstExtractor {
@@ -42,7 +50,23 @@ impl PstExtractor {
         Self {
             debug_mode,
             max_username_length,
+            extract_senders: true,
+            extract_recipients: true,
         }
+    }
+
+    /// Configure whether to extract sender addresses
+    #[must_use]
+    pub const fn with_senders(mut self, extract: bool) -> Self {
+        self.extract_senders = extract;
+        self
+    }
+
+    /// Configure whether to extract recipient addresses
+    #[must_use]
+    pub const fn with_recipients(mut self, extract: bool) -> Self {
+        self.extract_recipients = extract;
+        self
     }
 
     /// Extract contacts from a PST file
@@ -84,7 +108,7 @@ impl PstExtractor {
             .map_err(|e| PstWeeeError::Pst(format!("Failed to read root folder: {e}")))?;
 
         // Traverse the folder hierarchy
-        Self::process_folder(&store, &root_folder, &mut contacts, 0)?;
+        self.process_folder(&store, &root_folder, &mut contacts, 0)?;
 
         debug!("Extracted {} unique contacts", contacts.len());
 
@@ -94,6 +118,7 @@ impl PstExtractor {
     /// Process a single folder and its subfolders
     #[allow(clippy::unnecessary_wraps)]
     fn process_folder(
+        &self,
         store: &Rc<UnicodeStore>,
         folder: &Rc<UnicodeFolder>,
         contacts: &mut HashMap<String, Contact>,
@@ -120,7 +145,7 @@ impl PstExtractor {
                 if let Ok(node_id) = NodeId::new(NodeIdType::NormalMessage, row_id_value) {
                     if let Ok(entry_id) = store.properties().make_entry_id(node_id) {
                         // Try to read the message and extract contacts
-                        if let Err(e) = Self::process_message(store, &entry_id, contacts) {
+                        if let Err(e) = self.process_message(store, &entry_id, contacts) {
                             trace!("{indent}    Skipping message: {e}");
                         }
                     }
@@ -139,7 +164,7 @@ impl PstExtractor {
                     if let Ok(entry_id) = store.properties().make_entry_id(node_id) {
                         if let Ok(subfolder) = UnicodeFolder::read(Rc::clone(store), &entry_id) {
                             if let Err(e) =
-                                Self::process_folder(store, &subfolder, contacts, depth + 1)
+                                self.process_folder(store, &subfolder, contacts, depth + 1)
                             {
                                 warn!("{indent}  Error processing subfolder: {e}");
                             }
@@ -154,6 +179,7 @@ impl PstExtractor {
 
     /// Process a single message and extract contacts from it
     fn process_message(
+        &self,
         store: &Rc<UnicodeStore>,
         entry_id: &EntryId,
         contacts: &mut HashMap<String, Contact>,
@@ -163,10 +189,14 @@ impl PstExtractor {
             .map_err(|e| PstWeeeError::Pst(format!("Failed to read message: {e}")))?;
 
         // Extract sender from message properties
-        Self::extract_sender_from_message(&message, contacts);
+        if self.extract_senders {
+            Self::extract_sender_from_message(&message, contacts);
+        }
 
         // Extract recipients from recipient table
-        Self::extract_recipients_from_message(&message, contacts);
+        if self.extract_recipients {
+            Self::extract_recipients_from_message(store, &message, contacts);
+        }
 
         Ok(())
     }
@@ -193,29 +223,121 @@ impl PstExtractor {
 
     /// Extract recipients from message's recipient table
     ///
-    /// Note: The recipient table uses the complex `TableContext` API.
-    /// For simplicity, we extract basic string properties where available.
+    /// Iterates through the recipient table and extracts email addresses
+    /// for To, CC, and BCC recipients.
     fn extract_recipients_from_message(
+        store: &Rc<UnicodeStore>,
         message: &Rc<UnicodeMessage>,
-        _contacts: &mut HashMap<String, Contact>,
+        contacts: &mut HashMap<String, Contact>,
     ) {
-        // The recipient table context has column metadata
         let recipient_table = message.recipient_table();
         let context = recipient_table.context();
         let columns = context.columns();
 
-        // For each row in the recipient table, try to extract email data
-        // Note: Full extraction requires more complex block reading -
-        // for now we focus on the sender which is in message properties
+        // Find column indices for properties we care about
+        let email_col = columns.iter().position(|c| c.prop_id() == PR_EMAIL_ADDRESS);
+        let smtp_col = columns.iter().position(|c| c.prop_id() == PR_SMTP_ADDRESS);
+        let display_col = columns.iter().position(|c| c.prop_id() == PR_DISPLAY_NAME);
+
         trace!(
-            "Recipient table has {} columns and {} rows",
+            "Recipient table: {} columns, {} rows (email_col={:?}, smtp_col={:?})",
             columns.len(),
-            recipient_table.rows_matrix().count()
+            recipient_table.rows_matrix().count(),
+            email_col,
+            smtp_col
         );
 
-        // TODO: Implement full recipient extraction if needed
-        // This requires accessing the PST file reader with proper locking
-        // and using read_column() for each cell
+        // We need access to the PST file reader and block btree
+        let pst = store.pst();
+        let header = pst.header();
+        let root = header.root();
+        let encoding = header.crypt_method();
+
+        // Lock the file reader for the duration of extraction
+        let Ok(mut file) = pst.reader().lock() else {
+            warn!("Failed to lock PST file for recipient extraction");
+            return;
+        };
+
+        // Read the block btree
+        let block_btree = match UnicodeBlockBTree::read(&mut *file, *root.block_btree()) {
+            Ok(btree) => btree,
+            Err(e) => {
+                trace!("Failed to read block btree: {e}");
+                return;
+            }
+        };
+
+        // Iterate through recipient rows
+        for row in recipient_table.rows_matrix() {
+            let Ok(row_columns) = row.columns(context) else {
+                continue;
+            };
+
+            let mut email: Option<String> = None;
+            let mut display_name: Option<String> = None;
+
+            // Try to get SMTP address first (preferred)
+            if let Some(idx) = smtp_col {
+                if let Some(Some(value)) = row_columns.get(idx) {
+                    if let Ok(prop_value) = recipient_table.read_column(
+                        &mut *file,
+                        encoding,
+                        &block_btree,
+                        value,
+                        columns[idx].prop_type(),
+                    ) {
+                        email = Self::property_value_to_string(&prop_value);
+                    }
+                }
+            }
+
+            // Fall back to email address property
+            if email.is_none() {
+                if let Some(idx) = email_col {
+                    if let Some(Some(value)) = row_columns.get(idx) {
+                        if let Ok(prop_value) = recipient_table.read_column(
+                            &mut *file,
+                            encoding,
+                            &block_btree,
+                            value,
+                            columns[idx].prop_type(),
+                        ) {
+                            email = Self::property_value_to_string(&prop_value);
+                        }
+                    }
+                }
+            }
+
+            // Get display name
+            if let Some(idx) = display_col {
+                if let Some(Some(value)) = row_columns.get(idx) {
+                    if let Ok(prop_value) = recipient_table.read_column(
+                        &mut *file,
+                        encoding,
+                        &block_btree,
+                        value,
+                        columns[idx].prop_type(),
+                    ) {
+                        display_name = Self::property_value_to_string(&prop_value);
+                    }
+                }
+            }
+
+            // Add contact if we found an email
+            if let Some(ref e) = email {
+                Self::add_contact(contacts, e, display_name.as_deref());
+            }
+        }
+    }
+
+    /// Convert a `PropertyValue` to an optional String
+    fn property_value_to_string(value: &PropertyValue) -> Option<String> {
+        match value {
+            PropertyValue::String8(s) => Some(s.to_string()),
+            PropertyValue::Unicode(s) => Some(s.to_string()),
+            _ => None,
+        }
     }
 
     /// Get a string value from a `PropertyValue`

@@ -1,4 +1,4 @@
-# PST WEEE
+# Sparkle Pony
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
@@ -9,7 +9,7 @@ High-performance email contact extractor for Microsoft Outlook PST files.
 
 - **Fast PST Parsing**: Native Rust PST parsing via the `outlook-pst` crate
 - **Parallel Processing**: Multi-threaded extraction using Rayon
-- **Smart Filtering**: 
+- **Smart Filtering**:
   - Configurable blacklist for spam/invalid addresses (RON config)
   - TLD validation against IANA registry
   - Email format validation with regex
@@ -68,7 +68,7 @@ pst_weee -i inbox.pst --debug
 ### All Options
 
 | Option | Short | Default | Description |
-|--------|-------|---------|-------------|
+| -------- | ------- | --------- | ------------- |
 | `--input` | `-i` | Required | Path to PST file or folder |
 | `--output` | `-o` | `contacts.csv` | Output CSV file path |
 | `--cpu` | | `70.0` | Max CPU usage percentage |
@@ -107,14 +107,14 @@ BlacklistConfig(
 The CSV output contains:
 
 | Column | Description |
-|--------|-------------|
+| -------- | ------------- |
 | `email` | Email address |
 | `name` | Contact name (if available) |
 | `source` | Source PST file |
 
 ## Architecture
 
-```
+```text
 src/
 ├── cli/          # Command-line interface (clap)
 ├── config/       # Configuration handling

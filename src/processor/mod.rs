@@ -58,7 +58,7 @@ impl Processor {
         let resource_mgr = ResourceManager::new(resource_limits, config.safe_mode);
 
         // Create TLD filter
-        let tld_filter = Arc::new(TldFilter::new(&progress_dir, config.disable_tld_filter)?);
+        let tld_filter = Arc::new(TldFilter::new(&progress_dir, config.disable_tld_filter));
 
         // Create extractor (will be cloned per-thread)
         let contacts = Arc::new(DashMap::new());
@@ -253,7 +253,9 @@ impl Processor {
 
     /// Process a single PST file
     fn process_single_file(&self, pst_path: &Path) -> Result<usize> {
-        let extractor = PstExtractor::new(self.config.debug_mode, self.config.max_username_length);
+        let extractor = PstExtractor::new(self.config.debug_mode, self.config.max_username_length)
+            .with_senders(!self.config.skip_senders)
+            .with_recipients(!self.config.skip_recipients);
 
         let raw_contacts = extractor.extract_contacts(pst_path)?;
 
@@ -359,8 +361,10 @@ mod tests {
         assert!(processor.should_include_contact(&valid));
 
         // Invalid - blacklisted
-        let blacklisted =
-            Contact::new("noreply@example.com".to_string(), Some("No Reply".to_string()));
+        let blacklisted = Contact::new(
+            "noreply@example.com".to_string(),
+            Some("No Reply".to_string()),
+        );
         assert!(!processor.should_include_contact(&blacklisted));
     }
 }

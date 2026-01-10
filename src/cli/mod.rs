@@ -63,4 +63,12 @@ pub struct Args {
     /// Maximum username length for email filtering
     #[arg(long, default_value = "20")]
     pub max_username_length: usize,
+
+    /// Skip extracting sender email addresses
+    #[arg(long)]
+    pub skip_senders: bool,
+
+    /// Skip extracting recipient email addresses (To, CC, BCC)
+    #[arg(long)]
+    pub skip_recipients: bool,
 }

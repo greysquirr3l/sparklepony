@@ -38,12 +38,12 @@ fn main() -> Result<()> {
     // Convert args to config
     let config: Config = args.into();
 
-    info!("Input: {:?}", config.input_path);
-    info!("Output file: {:?}", config.output_path);
+    info!("Input: {}", config.input_path.display());
+    info!("Output file: {}", config.output_path.display());
 
     // Validate input path
     if !config.input_path.exists() {
-        error!("Input path does not exist: {:?}", config.input_path);
+        error!("Input path does not exist: {}", config.input_path.display());
         std::process::exit(1);
     }
 
@@ -51,8 +51,7 @@ fn main() -> Result<()> {
     let is_pst = config
         .input_path
         .extension()
-        .map(|e| e.eq_ignore_ascii_case("pst"))
-        .unwrap_or(false);
+        .is_some_and(|e| e.eq_ignore_ascii_case("pst"));
     let is_dir = config.input_path.is_dir();
 
     if !is_pst && !is_dir {
@@ -75,7 +74,7 @@ fn main() -> Result<()> {
     processor.process()?;
 
     let elapsed = start.elapsed();
-    info!("Processing completed in {:?}", elapsed);
+    info!("Processing completed in {elapsed:?}");
 
     Ok(())
 }
