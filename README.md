@@ -1,5 +1,7 @@
 # Sparkle Pony
 
+![Sparkle Pony Logo](docs/assets/logo-sparklepony.png)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-blue.svg)](https://www.rust-lang.org)
 
@@ -27,7 +29,7 @@ cd sparklepony
 cargo build --release
 ```
 
-The binary will be available at `target/release/pst_weee`.
+The binary will be available at `target/release/sparklepony`.
 
 ### Prerequisites
 
@@ -40,29 +42,29 @@ The binary will be available at `target/release/pst_weee`.
 
 ```bash
 # Extract contacts from a single PST file
-pst_weee -i inbox.pst -o contacts.csv
+sparklepony -i inbox.pst -o contacts.csv
 
 # Process all PST files in a directory
-pst_weee -i /path/to/pst/folder -o contacts.csv
+sparklepony -i /path/to/pst/folder -o contacts.csv
 ```
 
 ### Advanced Options
 
 ```bash
 # Limit resource usage
-pst_weee -i inbox.pst --cpu 50 --memory 60 --min-free-memory 4
+sparklepony -i inbox.pst --cpu 50 --memory 60 --min-free-memory 4
 
 # Use safe mode (conservative resource limits)
-pst_weee -i inbox.pst --safe
+sparklepony -i inbox.pst --safe
 
 # Set worker thread count
-pst_weee -i inbox.pst -w 4
+sparklepony -i inbox.pst -w 4
 
 # Disable TLD filtering
-pst_weee -i inbox.pst --disable-tld-filter
+sparklepony -i inbox.pst --disable-tld-filter
 
 # Enable debug logging
-pst_weee -i inbox.pst --debug
+sparklepony -i inbox.pst --debug
 ```
 
 ### All Options

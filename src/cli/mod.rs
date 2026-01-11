@@ -3,9 +3,9 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-/// PST WEEE - High-performance email contact extractor for PST files
+/// Sparkle Pony - High-performance email contact extractor for PST files
 #[derive(Parser, Debug)]
-#[command(name = "pst_weee")]
+#[command(name = "sparklepony")]
 #[command(author = "Nick Campbell")]
 #[command(version)]
 #[command(about = "High-performance email contact extractor for Microsoft Outlook PST files")]

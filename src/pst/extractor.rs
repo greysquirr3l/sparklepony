@@ -12,7 +12,7 @@ use outlook_pst::messaging::folder::UnicodeFolder;
 use outlook_pst::messaging::message::UnicodeMessage;
 use outlook_pst::messaging::store::{EntryId, UnicodeStore};
 use outlook_pst::ndb::header::Header;
-use outlook_pst::ndb::node_id::{NodeId, NodeIdType};
+use outlook_pst::ndb::node_id::NodeId;
 use outlook_pst::ndb::page::UnicodeBlockBTree;
 use outlook_pst::ndb::root::Root;
 use outlook_pst::PstFile;
@@ -136,18 +136,16 @@ impl PstExtractor {
             trace!("{indent}  Found {row_count} messages");
 
             // Iterate through contents table to get message entry IDs
-            // The contents table has row IDs that can be used to construct entry IDs
+            // The row ID is already a complete NodeId with type embedded
             for row in contents_table.rows_matrix() {
-                // Get the row ID - convert TableRowId to u32
+                // Get the row ID - this is a complete NodeId
                 let row_id_value: u32 = row.id().into();
+                let node_id = NodeId::from(row_id_value);
 
-                // Create NodeId for the message
-                if let Ok(node_id) = NodeId::new(NodeIdType::NormalMessage, row_id_value) {
-                    if let Ok(entry_id) = store.properties().make_entry_id(node_id) {
-                        // Try to read the message and extract contacts
-                        if let Err(e) = self.process_message(store, &entry_id, contacts) {
-                            trace!("{indent}    Skipping message: {e}");
-                        }
+                if let Ok(entry_id) = store.properties().make_entry_id(node_id) {
+                    // Try to read the message and extract contacts
+                    if let Err(e) = self.process_message(store, &entry_id, contacts) {
+                        trace!("{indent}    Skipping message: {e}");
                     }
                 }
             }
@@ -155,21 +153,29 @@ impl PstExtractor {
 
         // Recurse into subfolders via hierarchy_table
         if let Some(hierarchy_table) = folder.hierarchy_table() {
-            for row in hierarchy_table.rows_matrix() {
-                // Get the row ID - convert TableRowId to u32
-                let row_id_value: u32 = row.id().into();
+            let subfolder_count = hierarchy_table.rows_matrix().count();
+            trace!("{indent}  Found {subfolder_count} subfolders");
 
-                // Create NodeId for the folder
-                if let Ok(node_id) = NodeId::new(NodeIdType::NormalFolder, row_id_value) {
-                    if let Ok(entry_id) = store.properties().make_entry_id(node_id) {
-                        if let Ok(subfolder) = UnicodeFolder::read(Rc::clone(store), &entry_id) {
+            for row in hierarchy_table.rows_matrix() {
+                // Get the row ID - this IS the complete NodeId with type already embedded
+                let row_id_value: u32 = row.id().into();
+                trace!("{indent}    Trying subfolder with row_id: 0x{row_id_value:X}");
+
+                // The row_id is already a complete NodeId, so just convert it
+                let node_id = NodeId::from(row_id_value);
+
+                match store.properties().make_entry_id(node_id) {
+                    Ok(entry_id) => match UnicodeFolder::read(Rc::clone(store), &entry_id) {
+                        Ok(subfolder) => {
                             if let Err(e) =
                                 self.process_folder(store, &subfolder, contacts, depth + 1)
                             {
                                 warn!("{indent}  Error processing subfolder: {e}");
                             }
                         }
-                    }
+                        Err(e) => trace!("{indent}    Failed to read subfolder: {e}"),
+                    },
+                    Err(e) => trace!("{indent}    Failed to make entry_id: {e}"),
                 }
             }
         }

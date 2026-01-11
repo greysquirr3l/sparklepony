@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 /// Default progress file name
-const PROGRESS_FILE: &str = ".pst_weee_progress.json";
+const PROGRESS_FILE: &str = ".sparklepony_progress.json";
 
 /// Progress tracking state
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

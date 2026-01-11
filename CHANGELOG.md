@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Actions CI workflow (cross-platform testing, formatting, clippy, docs)
+- GitHub Actions release workflow (multi-platform binaries with checksums)
+- GitHub Actions security workflow (cargo-audit, clippy SARIF, cargo-deny, Semgrep)
+- `deny.toml` configuration for license and dependency policy checks
+
 ## [0.2.0] - 2026-01-10
 
 ### Added

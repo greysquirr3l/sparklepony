@@ -3,7 +3,7 @@
 use crate::config::Config;
 use crate::error::{PstWeeeError, Result};
 use crate::filter::{contains_blacklisted_terms, validate_email, TldFilter};
-use crate::output::CsvWriter;
+use crate::output::{read_existing_contacts, CsvWriter};
 use crate::progress::ProgressTracker;
 use crate::pst::{Contact, PstExtractor};
 use crate::resource::{ResourceLimits, ResourceManager};
@@ -38,7 +38,22 @@ impl Processor {
     /// # Errors
     /// Returns an error if the CSV writer or TLD filter fails to initialize.
     pub fn new(config: Config) -> Result<Self> {
-        // Create CSV writer
+        // Load existing contacts from output file (if it exists) for deduplication
+        let contacts = Arc::new(DashMap::new());
+        let existing_contacts = read_existing_contacts(&config.output_path)?;
+        let existing_count = existing_contacts.len();
+        for contact in existing_contacts {
+            contacts.insert(contact.email.clone(), contact);
+        }
+        if existing_count > 0 {
+            info!(
+                "Loaded {} existing contacts from {} for deduplication",
+                existing_count,
+                config.output_path.display()
+            );
+        }
+
+        // Create CSV writer (will overwrite, but we have existing contacts in memory)
         let csv_writer = Arc::new(CsvWriter::new(&config.output_path, config.debug_mode)?);
 
         // Create progress tracker
@@ -59,9 +74,6 @@ impl Processor {
 
         // Create TLD filter
         let tld_filter = Arc::new(TldFilter::new(&progress_dir, config.disable_tld_filter));
-
-        // Create extractor (will be cloned per-thread)
-        let contacts = Arc::new(DashMap::new());
 
         info!(
             "Processor initialized. Safe mode: {}, TLD filter: {}",
@@ -282,19 +294,23 @@ impl Processor {
     fn should_include_contact(&self, contact: &Contact) -> bool {
         // Validate email format
         if !validate_email(&contact.email, self.config.max_username_length) {
+            debug!("Filtered out (invalid format): {}", contact.email);
             return false;
         }
 
         // Check blacklisted terms
         if contains_blacklisted_terms(&contact.email) {
+            debug!("Filtered out (blacklisted): {}", contact.email);
             return false;
         }
 
         // Check TLD
         if !self.tld_filter.is_valid_tld(&contact.email) {
+            debug!("Filtered out (invalid TLD): {}", contact.email);
             return false;
         }
 
+        debug!("Accepted contact: {}", contact.email);
         true
     }
 

@@ -1,52 +1,16 @@
-# PST WEEE Rust Architecture
+# Sparkle Pony Rust Architecture
 
 ## Executive Summary
 
-This document outlines the architecture for reimplementing PST WEEE in Rust, leveraging
-Microsoft's official `outlook-pst-rs` library for native PST parsing. The new
+This document outlines the architecture of Sparkle Pony, a standalone Rust implementation leveraging
+Microsoft's official `outlook-pst-rs` library for native PST parsing. The
 implementation eliminates external dependencies on `libpst`/`readpst`, provides
-better performance through direct memory access to PST structures, and maintains
-full feature parity with the existing Go implementation.
+excellent performance through direct memory access to PST structures, and delivers
+a complete, production-ready solution for email contact extraction.
 
 ---
 
-## Current Go Architecture
-
-```mermaid
-flowchart TB
-    subgraph CLI["cmd/pst_weee/main.go"]
-        A["CLI Entry Point & Flag Parsing"]
-    end
-
-    subgraph Processor["internal/processor/processor.go"]
-        B["Orchestration, Worker Pool, File Grouping"]
-        subgraph Components["Supporting Components"]
-            direction LR
-            C1["resource.go<br/>CPU/Mem"]
-            C2["progress.go<br/>Tracking"]
-            C3["csv.go<br/>Output"]
-            C4["tld_filter.go<br/>Validation"]
-        end
-    end
-
-    subgraph PST["internal/pst/libpst.go"]
-        D["Subprocess: readpst → temp files → regex parse"]
-    end
-
-    CLI --> Processor
-    Processor --> PST
-```
-
-### Current Bottlenecks
-
-1. **Subprocess overhead**: Spawning `readpst` for each PST file
-2. **Disk I/O**: Extracting to temporary files, then reading them back
-3. **Text parsing**: Regex-based extraction from unstructured mbox/eml output
-4. **External dependency**: Requires `libpst` installed on the system
-
----
-
-## Proposed Rust Architecture
+## Architecture Overview
 
 ```mermaid
 flowchart TB
@@ -81,9 +45,7 @@ flowchart TB
 
 ---
 
-## Data Flow Comparison
-
-### Go Implementation (Current)
+## Data Flow
 
 ```mermaid
 flowchart LR
@@ -91,36 +53,7 @@ flowchart LR
         A[("PST File(s)")]
     end
 
-    subgraph GoProcess["Go Process"]
-        B["Spawn readpst"]
-        C[("Temp Files<br/>.mbox/.eml")]
-        D["Regex Parse"]
-        E["Validate & Dedup"]
-    end
-
-    subgraph Output
-        F[("contacts.csv")]
-    end
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-
-    style C fill:#ffcccc
-    style B fill:#ffcccc
-```
-
-### Rust Implementation (Proposed)
-
-```mermaid
-flowchart LR
-    subgraph Input
-        A[("PST File(s)")]
-    end
-
-    subgraph RustProcess["Rust Process"]
+    subgraph Process["Sparkle Pony"]
         B["outlook-pst-rs<br/>Direct Memory Access"]
         C["Structured API<br/>Recipients/Messages"]
         D["Validate & Dedup"]
@@ -145,7 +78,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph Root["pst_weee_rs/"]
+    subgraph Root["sparklepony/"]
         direction TB
         Cargo["Cargo.toml"]
 
@@ -179,7 +112,7 @@ flowchart TB
 ### Detailed Module Breakdown
 
 ```text
-pst_weee_rs/
+sparklepony/
 ├── Cargo.toml
 ├── Cargo.lock
 ├── README.md
@@ -761,13 +694,13 @@ impl Processor {
 
 ```toml
 [package]
-name = "pst_weee"
+name = "sparklepony"
 version = "0.2.0"
 edition = "2021"
 authors = ["Your Name <email@example.com>"]
 description = "High-performance email contact extractor for Microsoft Outlook PST files"
 license = "MIT"
-repository = "https://github.com/greysquirr3l/pst_weee"
+repository = "https://github.com/greysquirr3l/sparklepony"
 
 [dependencies]
 # PST parsing - the star of the show!
@@ -977,16 +910,16 @@ fn test_pst_extraction() {
 
 ---
 
-## Migration Compatibility
+## Key Features
 
-| Go Feature | Rust Equivalent | Notes |
+| Feature | Implementation | Notes |
 | ------------ | ----------------- | ------- |
-| CLI flags | `clap` derive macros | Same flag names maintained |
-| CSV output | `csv` crate | Identical output format |
-| Progress JSON | `serde_json` | Same JSON schema |
-| Worker pool | `rayon` | More efficient work stealing |
-| sync.Map | `DashMap` | Lock-free alternative |
-| gopsutil | `sysinfo` | Cross-platform system info |
+| CLI | `clap` derive macros | Intuitive command-line interface |
+| CSV output | `csv` crate | Clean, standard output format |
+| Progress tracking | `serde_json` | Resumable processing with JSON persistence |
+| Parallelism | `rayon` | Efficient work-stealing thread pool |
+| Deduplication | `DashMap` | Lock-free concurrent hash map |
+| System monitoring | `sysinfo` | Cross-platform resource management |
 
 ---
 

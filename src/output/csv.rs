@@ -2,10 +2,10 @@
 
 use crate::error::Result;
 use crate::pst::Contact;
-use csv::Writer;
-use log::debug;
+use csv::{Reader, Writer};
+use log::{debug, info};
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -120,6 +120,52 @@ impl CsvWriter {
     }
 }
 
+/// Read existing contacts from a CSV file
+///
+/// # Arguments
+/// * `path` - Path to the CSV file to read
+///
+/// # Returns
+/// A vector of contacts read from the file, or empty vector if file doesn't exist
+///
+/// # Errors
+/// Returns an error if the file exists but cannot be read or parsed.
+pub fn read_existing_contacts(path: &Path) -> Result<Vec<Contact>> {
+    if !path.exists() {
+        debug!("No existing CSV file at {}", path.display());
+        return Ok(Vec::new());
+    }
+
+    let file = File::open(path)?;
+    let buf_reader = BufReader::new(file);
+    let mut reader = Reader::from_reader(buf_reader);
+
+    let mut contacts = Vec::new();
+
+    for result in reader.records() {
+        let record = result?;
+        if !record.is_empty() {
+            let email = record.get(0).unwrap_or("").to_string();
+            let display_name = record
+                .get(1)
+                .map(ToString::to_string)
+                .filter(|s| !s.is_empty());
+
+            if !email.is_empty() {
+                contacts.push(Contact::new(email, display_name));
+            }
+        }
+    }
+
+    info!(
+        "Loaded {} existing contacts from {}",
+        contacts.len(),
+        path.display()
+    );
+
+    Ok(contacts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,5 +213,40 @@ mod tests {
         writer.flush().unwrap();
 
         assert_eq!(writer.record_count(), 3);
+    }
+
+    #[test]
+    fn test_read_existing_contacts() {
+        let dir = tempdir().unwrap();
+        let output_path = dir.path().join("test.csv");
+
+        // Write some contacts first
+        let writer = CsvWriter::new(&output_path, false).unwrap();
+        let contacts = vec![
+            Contact::new("alice@example.com", Some("Alice".to_string())),
+            Contact::new("bob@example.com", Some("Bob".to_string())),
+            Contact::new("charlie@example.com", None),
+        ];
+        writer.write_contacts(&contacts).unwrap();
+        writer.flush().unwrap();
+        drop(writer);
+
+        // Read them back
+        let loaded = read_existing_contacts(&output_path).unwrap();
+        assert_eq!(loaded.len(), 3);
+        assert_eq!(loaded[0].email, "alice@example.com");
+        assert_eq!(loaded[0].display_name, Some("Alice".to_string()));
+        assert_eq!(loaded[1].email, "bob@example.com");
+        assert_eq!(loaded[2].email, "charlie@example.com");
+        assert_eq!(loaded[2].display_name, None);
+    }
+
+    #[test]
+    fn test_read_nonexistent_file() {
+        let dir = tempdir().unwrap();
+        let output_path = dir.path().join("nonexistent.csv");
+
+        let loaded = read_existing_contacts(&output_path).unwrap();
+        assert!(loaded.is_empty());
     }
 }

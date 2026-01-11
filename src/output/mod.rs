@@ -2,4 +2,4 @@
 
 mod csv;
 
-pub use self::csv::CsvWriter;
+pub use self::csv::{read_existing_contacts, CsvWriter};

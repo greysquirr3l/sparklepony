@@ -1,7 +1,7 @@
-//! Benchmarks for PST WEEE extraction
+//! Benchmarks for Sparkle Pony extraction
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use pst_weee::filter::validate_email;
+use sparklepony::filter::validate_email;
 
 fn email_validation_benchmark(c: &mut Criterion) {
     let long_email = format!("{}@example.com", "a".repeat(50));

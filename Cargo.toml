@@ -1,11 +1,11 @@
 [package]
-name = "pst_weee"
+name = "sparklepony"
 version = "0.2.0"
 edition = "2021"
 authors = ["Nick Campbell"]
 description = "High-performance email contact extractor for Microsoft Outlook PST files"
 license = "MIT"
-repository = "https://github.com/greysquirr3l/pst_weee"
+repository = "https://github.com/greysquirr3l/sparklepony"
 readme = "README.md"
 keywords = ["pst", "outlook", "email", "extractor", "contacts"]
 categories = ["command-line-utilities", "email"]
@@ -54,7 +54,7 @@ tempfile = "3"
 criterion = "0.8.1"
 
 [[bin]]
-name = "pst_weee"
+name = "sparklepony"
 path = "src/main.rs"
 
 [[bench]]

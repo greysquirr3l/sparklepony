@@ -1,0 +1,137 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v[0-9]+.[0-9]+.[0-9]+"
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Release tag (e.g., v0.2.0)"
+                required: true
+                type: string
+
+permissions:
+    contents: write
+
+env:
+    CARGO_TERM_COLOR: always
+    RUST_BACKTRACE: 1
+
+jobs:
+    build:
+        name: Build ${{ matrix.target }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - target: x86_64-unknown-linux-gnu
+                      os: ubuntu-latest
+                      archive: tar.gz
+                    - target: x86_64-unknown-linux-musl
+                      os: ubuntu-latest
+                      archive: tar.gz
+                    - target: aarch64-unknown-linux-gnu
+                      os: ubuntu-latest
+                      archive: tar.gz
+                    - target: x86_64-apple-darwin
+                      os: macos-latest
+                      archive: tar.gz
+                    - target: aarch64-apple-darwin
+                      os: macos-latest
+                      archive: tar.gz
+                    - target: x86_64-pc-windows-msvc
+                      os: windows-latest
+                      archive: zip
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: ${{ matrix.target }}
+
+            - name: Install cross-compilation tools (Linux)
+              if: matrix.os == 'ubuntu-latest'
+              run: |
+                  sudo apt-get update
+                  case "${{ matrix.target }}" in
+                    x86_64-unknown-linux-musl)
+                      sudo apt-get install -y musl-tools
+                      ;;
+                    aarch64-unknown-linux-gnu)
+                      sudo apt-get install -y gcc-aarch64-linux-gnu
+                      ;;
+                  esac
+
+            - name: Build release binary
+              run: cargo build --release --target ${{ matrix.target }}
+
+            - name: Prepare release artifact (Unix)
+              if: matrix.os != 'windows-latest'
+              run: |
+                  cd target/${{ matrix.target }}/release
+                  strip sparklepony || true
+                  tar czvf ../../../sparklepony-${{ matrix.target }}.tar.gz sparklepony
+                  cd ../../..
+
+            - name: Prepare release artifact (Windows)
+              if: matrix.os == 'windows-latest'
+              shell: pwsh
+              run: |
+                  cd target/${{ matrix.target }}/release
+                  Compress-Archive -Path sparklepony.exe -DestinationPath ../../../sparklepony-${{ matrix.target }}.zip
+                  cd ../../..
+
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: sparklepony-${{ matrix.target }}
+                  path: sparklepony-${{ matrix.target }}.${{ matrix.archive }}
+                  retention-days: 1
+
+    release:
+        name: Create Release
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Generate checksums
+              run: |
+                  cd artifacts
+                  find . -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec mv {} . \;
+                  rm -rf sparklepony-*/
+                  sha256sum * > SHA256SUMS.txt
+                  cat SHA256SUMS.txt
+
+            - name: Determine tag
+              id: tag
+              run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+                  else
+                    echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.tag.outputs.tag }}
+                  name: Sparkle Pony ${{ steps.tag.outputs.tag }}
+                  draft: false
+                  prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+                  generate_release_notes: true
+                  files: |
+                      artifacts/*
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

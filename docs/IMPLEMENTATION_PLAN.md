@@ -1,9 +1,9 @@
-# PST WEEE Rust Implementation Plan
+# Sparkle Pony Rust Implementation Plan
 
 ## Overview
 
 This document provides a detailed, phase-by-phase implementation plan for migrating
-PST WEEE from Go to Rust. The plan is designed for incremental delivery with testable
+Sparkle Pony from Go to Rust. The plan is designed for incremental delivery with testable
 milestones at each phase.
 
 **Estimated Total Duration**: 4-6 weeks
@@ -36,21 +36,21 @@ each unique email.
 #### 0.1 Create Project Scaffold
 
 ```bash
-cargo new pst_weee_rs
-cd pst_weee_rs
+cargo new sparklepony
+cd sparklepony
 ```
 
 #### 0.2 Configure Cargo.toml
 
 ```toml
 [package]
-name = "pst_weee"
+name = "sparklepony"
 version = "0.2.0"
 edition = "2021"
 authors = ["Nick Campbell"]
 description = "High-performance email contact extractor for Microsoft Outlook PST files"
 license = "MIT"
-repository = "https://github.com/greysquirr3l/pst_weee"
+repository = "https://github.com/greysquirr3l/sparklepony"
 
 [dependencies]
 outlook-pst = "1.1"
@@ -76,7 +76,7 @@ use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
     let pst_path = std::env::args().nth(1)
-        .expect("Usage: pst_weee <path-to-pst>");
+        .expect("Usage: sparklepony <path-to-pst>");
 
     let store = open_store(Path::new(&pst_path))?;
     println!("✓ PST opened successfully");
@@ -116,7 +116,7 @@ fn main() -> anyhow::Result<()> {
 
 #### 1.1 Create Module Structure
 
-```
+```text
 src/
 ├── main.rs
 ├── lib.rs
@@ -356,7 +356,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "pst_weee")]
+#[command(name = "sparklepony")]
 #[command(author = "Nick Campbell")]
 #[command(version = "0.2.0")]
 #[command(about = "High-performance email contact extractor for PST files")]
@@ -1107,7 +1107,7 @@ impl Processor {
 // tests/unit/email_validation.rs
 #[cfg(test)]
 mod email_tests {
-    use pst_weee::filter::email::validate_email;
+    use sparklepony::filter::email::validate_email;
 
     #[test]
     fn test_valid_standard_emails() {
@@ -1153,7 +1153,7 @@ mod email_tests {
 
 ```rust
 // tests/integration/extraction.rs
-use pst_weee::pst::PstExtractor;
+use sparklepony::pst::PstExtractor;
 use std::path::Path;
 use tempfile::tempdir;
 
@@ -1203,7 +1203,7 @@ fn test_csv_output_format() {
 ```rust
 // benches/extraction_bench.rs
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use pst_weee::filter::email::validate_email;
+use sparklepony::filter::email::validate_email;
 
 fn email_validation_benchmark(c: &mut Criterion) {
     let emails = vec![
@@ -1292,8 +1292,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: pst_weee-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/pst_weee*
+          name: sparklepony-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/sparklepony*
 ```
 
 #### 6.3 Create Cargo Release
