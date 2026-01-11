@@ -127,16 +127,37 @@ jobs:
 
             - name: Run Clippy with SARIF output
               run: |
-                  cargo clippy --all-targets --all-features --message-format=json 2>&1 | \
-                    jq -s '.' > clippy-results.json || true
+                  cargo clippy --all-targets --all-features --message-format=json 2>&1 > clippy-raw.txt || true
+                  # Convert newline-delimited JSON to JSON array
+                  python3 -c "
+import json
+import sys
+results = []
+with open('clippy-raw.txt', 'r') as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            try:
+                results.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+with open('clippy-results.json', 'w') as f:
+    json.dump(results, f)
+"
 
             - name: Convert Clippy to SARIF
               run: |
                   cat > convert-clippy-sarif.py << 'EOF'
                   import json
+                  import os
 
-                  with open('clippy-results.json', 'r') as f:
-                      messages = json.load(f)
+                  messages = []
+                  if os.path.exists('clippy-results.json') and os.path.getsize('clippy-results.json') > 0:
+                      with open('clippy-results.json', 'r') as f:
+                          try:
+                              messages = json.load(f)
+                          except json.JSONDecodeError:
+                              messages = []
 
                   sarif = {
                       "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",

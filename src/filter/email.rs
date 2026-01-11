@@ -99,7 +99,10 @@ impl BlacklistConfig {
     pub fn load_or_default(path: &Path) -> Self {
         if path.exists() {
             Self::load_from_file(path).unwrap_or_else(|e| {
-                log::warn!("Failed to load blacklist from {}: {e}. Using defaults.", path.display());
+                log::warn!(
+                    "Failed to load blacklist from {}: {e}. Using defaults.",
+                    path.display()
+                );
                 Self::default()
             })
         } else {
