@@ -1,273 +1,82 @@
 name: Security Scan
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
-    schedule:
-        # Run weekly on Monday at 00:00 UTC
-        - cron: "0 0 * * 1"
-    workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
 
 permissions:
-    contents: read
-    security-events: write
-    actions: read
+  contents: read
+  security-events: write
+  actions: read
 
 env:
-    CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: always
 
 jobs:
-    # Rust dependency audit using cargo-audit
-    cargo-audit:
-        name: Cargo Audit
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: Install cargo-audit
-              run: cargo install cargo-audit
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
 
-            - name: Run cargo-audit
-              run: cargo audit --json > audit-results.json || true
+      - name: Run cargo-audit
+        run: cargo audit || true
 
-            - name: Display audit results
-              run: cargo audit || true
+  clippy-security:
+    name: Clippy Security Lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Convert to SARIF
-              run: |
-                  cat > convert-to-sarif.py << 'EOF'
-                  import json
-                  import sys
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
-                  with open('audit-results.json', 'r') as f:
-                      audit = json.load(f)
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings || true
 
-                  sarif = {
-                      "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
-                      "version": "2.1.0",
-                      "runs": [{
-                          "tool": {
-                              "driver": {
-                                  "name": "cargo-audit",
-                                  "informationUri": "https://github.com/rustsec/rustsec",
-                                  "version": "0.18.0",
-                                  "rules": []
-                              }
-                          },
-                          "results": []
-                      }]
-                  }
+  cargo-deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-                  rules = {}
-                  results = []
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
 
-                  for vuln in audit.get('vulnerabilities', {}).get('list', []):
-                      advisory = vuln.get('advisory', {})
-                      vuln_id = advisory.get('id', 'UNKNOWN')
+      - name: Check licenses and advisories
+        run: cargo deny check || true
 
-                      if vuln_id not in rules:
-                          rules[vuln_id] = {
-                              "id": vuln_id,
-                              "name": advisory.get('title', 'Unknown vulnerability'),
-                              "shortDescription": {"text": advisory.get('title', 'Unknown')},
-                              "fullDescription": {"text": advisory.get('description', 'No description')},
-                              "helpUri": advisory.get('url', ''),
-                              "defaultConfiguration": {
-                                  "level": "error" if advisory.get('severity', '').lower() in ['critical', 'high'] else "warning"
-                              }
-                          }
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-                      results.append({
-                          "ruleId": vuln_id,
-                          "level": "error" if advisory.get('severity', '').lower() in ['critical', 'high'] else "warning",
-                          "message": {
-                              "text": f"{advisory.get('title', 'Vulnerability')} in {vuln.get('package', {}).get('name', 'unknown')} {vuln.get('package', {}).get('version', '')}"
-                          },
-                          "locations": [{
-                              "physicalLocation": {
-                                  "artifactLocation": {"uri": "Cargo.toml"},
-                                  "region": {"startLine": 1}
-                              }
-                          }]
-                      })
+      - name: Run Semgrep
+        run: semgrep scan --config auto --sarif --output semgrep.sarif . || true
 
-                  sarif['runs'][0]['tool']['driver']['rules'] = list(rules.values())
-                  sarif['runs'][0]['results'] = results
-
-                  with open('cargo-audit.sarif', 'w') as f:
-                      json.dump(sarif, f, indent=2)
-                  EOF
-                  python3 convert-to-sarif.py
-
-            - name: Upload SARIF to GitHub Security
-              uses: github/codeql-action/upload-sarif@v3
-              with:
-                  sarif_file: cargo-audit.sarif
-                  category: cargo-audit
-              continue-on-error: true
-
-    # Clippy lints as security checks
-    clippy-security:
-        name: Clippy Security Lints
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: clippy
-
-            - name: Run Clippy with SARIF output
-              run: |
-                  cargo clippy --all-targets --all-features --message-format=json 2>&1 > clippy-raw.txt || true
-                  # Convert newline-delimited JSON to JSON array
-                  python3 -c "
-import json
-import sys
-results = []
-with open('clippy-raw.txt', 'r') as f:
-    for line in f:
-        line = line.strip()
-        if line:
-            try:
-                results.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
-with open('clippy-results.json', 'w') as f:
-    json.dump(results, f)
-"
-
-            - name: Convert Clippy to SARIF
-              run: |
-                  cat > convert-clippy-sarif.py << 'EOF'
-                  import json
-                  import os
-
-                  messages = []
-                  if os.path.exists('clippy-results.json') and os.path.getsize('clippy-results.json') > 0:
-                      with open('clippy-results.json', 'r') as f:
-                          try:
-                              messages = json.load(f)
-                          except json.JSONDecodeError:
-                              messages = []
-
-                  sarif = {
-                      "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
-                      "version": "2.1.0",
-                      "runs": [{
-                          "tool": {
-                              "driver": {
-                                  "name": "clippy",
-                                  "informationUri": "https://github.com/rust-lang/rust-clippy",
-                                  "rules": []
-                              }
-                          },
-                          "results": []
-                      }]
-                  }
-
-                  rules = {}
-                  results = []
-
-                  for msg in messages:
-                      if msg.get('reason') != 'compiler-message':
-                          continue
-
-                      message = msg.get('message', {})
-                      if message.get('level') not in ['warning', 'error']:
-                          continue
-
-                      code = message.get('code', {})
-                      if not code:
-                          continue
-
-                      rule_id = code.get('code', 'unknown')
-                      spans = message.get('spans', [])
-
-                      if not spans:
-                          continue
-
-                      primary_span = next((s for s in spans if s.get('is_primary')), spans[0])
-
-                      if rule_id not in rules:
-                          rules[rule_id] = {
-                              "id": rule_id,
-                              "shortDescription": {"text": message.get('message', 'Unknown issue')[:100]},
-                              "defaultConfiguration": {
-                                  "level": "error" if message.get('level') == 'error' else "warning"
-                              }
-                          }
-
-                      results.append({
-                          "ruleId": rule_id,
-                          "level": "error" if message.get('level') == 'error' else "warning",
-                          "message": {"text": message.get('message', 'Unknown issue')},
-                          "locations": [{
-                              "physicalLocation": {
-                                  "artifactLocation": {"uri": primary_span.get('file_name', 'unknown')},
-                                  "region": {
-                                      "startLine": primary_span.get('line_start', 1),
-                                      "startColumn": primary_span.get('column_start', 1),
-                                      "endLine": primary_span.get('line_end', 1),
-                                      "endColumn": primary_span.get('column_end', 1)
-                                  }
-                              }
-                          }]
-                      })
-
-                  sarif['runs'][0]['tool']['driver']['rules'] = list(rules.values())
-                  sarif['runs'][0]['results'] = results
-
-                  with open('clippy.sarif', 'w') as f:
-                      json.dump(sarif, f, indent=2)
-                  EOF
-                  python3 convert-clippy-sarif.py
-
-            - name: Upload SARIF to GitHub Security
-              uses: github/codeql-action/upload-sarif@v3
-              with:
-                  sarif_file: clippy.sarif
-                  category: clippy
-              continue-on-error: true
-
-    # cargo-deny for license and dependency checks
-    cargo-deny:
-        name: Cargo Deny
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install cargo-deny
-              run: cargo install cargo-deny
-
-            - name: Check licenses and advisories
-              run: cargo deny check || true
-
-    # Semgrep for code patterns
-    semgrep:
-        name: Semgrep SAST
-        runs-on: ubuntu-latest
-        container:
-            image: semgrep/semgrep
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Run Semgrep
-              run: semgrep scan --config auto --sarif --output semgrep.sarif . || true
-
-            - name: Upload SARIF to GitHub Security
-              uses: github/codeql-action/upload-sarif@v3
-              with:
-                  sarif_file: semgrep.sarif
-                  category: semgrep
-              continue-on-error: true
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+        continue-on-error: true
