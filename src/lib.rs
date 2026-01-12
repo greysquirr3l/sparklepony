@@ -1,4 +1,4 @@
-//! PST WEEE library - Core functionality for PST email extraction
+//! Sparkle Pony library - Core functionality for PST email extraction
 
 #![allow(clippy::multiple_crate_versions)] // Transitive dependencies
 

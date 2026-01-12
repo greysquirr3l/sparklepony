@@ -1,4 +1,4 @@
-//! PST WEEE - High-performance email contact extractor for Microsoft Outlook PST files
+//! Sparkle Pony - High-performance email contact extractor for Microsoft Outlook PST files
 //!
 //! This tool extracts email contacts from PST files and outputs them to a CSV file.
 //! It supports parallel processing, resource management, and resumable progress tracking.
@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         .format_timestamp_millis()
         .init();
 
-    info!("PST WEEE - Email Extractor");
+    info!("Sparkle Pony - Email Extractor");
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
 
     // Convert args to config

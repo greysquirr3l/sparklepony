@@ -760,8 +760,8 @@ harness = false
 
 ```mermaid
 flowchart TB
-    subgraph Errors["PstWeeeError Hierarchy"]
-        A["PstWeeeError"] --> B["PstOpenError"]
+    subgraph Errors["SparkleponyError Hierarchy"]
+        A["SparkleponyError"] --> B["PstOpenError"]
         A --> C["IoError"]
         A --> D["CsvError"]
         A --> E["ConfigError"]
@@ -778,7 +778,7 @@ flowchart TB
     end
 
     subgraph Handling["Error Propagation"]
-        M["Result<T, PstWeeeError>"] --> N{"Recoverable?"}
+        M["Result<T, SparkleponyError>"] --> N{"Recoverable?"}}
         N -->|Yes| O["Log & Continue"]
         N -->|No| P["Propagate Up"]
     end
@@ -792,7 +792,7 @@ flowchart TB
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum PstWeeeError {
+pub enum SparkleponyError {
     #[error("Failed to open PST file: {0}")]
     PstOpenError(#[from] outlook_pst::Error),
 
@@ -818,7 +818,7 @@ pub enum PstWeeeError {
     SecurityError(String),
 }
 
-pub type Result<T> = std::result::Result<T, PstWeeeError>;
+pub type Result<T> = std::result::Result<T, SparkleponyError>;
 ```
 
 ---

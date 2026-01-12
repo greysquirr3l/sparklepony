@@ -1,10 +1,10 @@
-//! Configuration structures for PST WEEE
+//! Configuration structures for Sparkle Pony
 
 use crate::cli::Args;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Main configuration for PST WEEE processor
+/// Main configuration for Sparkle Pony processor
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Config {

@@ -1,8 +1,8 @@
-//! Error types for PST WEEE
+//! Error types for Sparkle Pony
 
 use thiserror::Error;
 
-/// Main error type for PST WEEE operations
+/// Main error type for Sparkle Pony operations
 #[derive(Error, Debug)]
 #[allow(dead_code)] // Some variants are reserved for future use
 pub enum PstWeeeError {
@@ -47,7 +47,7 @@ pub enum PstWeeeError {
     Http(#[from] reqwest::Error),
 }
 
-/// Result type alias for PST WEEE operations
+/// Result type alias for Sparkle Pony operations
 pub type Result<T> = std::result::Result<T, PstWeeeError>;
 
 impl From<outlook_pst::PstError> for PstWeeeError {

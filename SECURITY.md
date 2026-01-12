@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-We take security seriously. If you discover a security vulnerability in PST WEEE, please report it responsibly.
+We take security seriously. If you discover a security vulnerability in Sparkle Pony, please report it responsibly.
 
 ### How to Report
 
@@ -63,7 +63,7 @@ Use the `--safe` flag for conservative resource limits.
 
 ## Best Practices
 
-When using PST WEEE:
+When using Sparkle Pony:
 
 1. **File Permissions**: Ensure output CSV files have appropriate permissions
 2. **Temporary Files**: The tool does not create temporary files with sensitive data
