@@ -42,3 +42,4 @@ tarpaulin-report.html
 # Other
 output/
 reference_projects/
+docs/IMPLEMENTATION_PLAN.md
