@@ -28,6 +28,7 @@ updates:
     commit-message:
       prefix: "ci"
     groups:
+      # Group all updates for auto-merge
       actions-all:
         patterns:
           - "*"
