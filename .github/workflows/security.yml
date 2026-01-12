@@ -1,82 +1,82 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: "0 0 * * 1"
-  workflow_dispatch:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    schedule:
+        - cron: "0 0 * * 1"
+    workflow_dispatch:
 
 permissions:
-  contents: read
-  security-events: write
-  actions: read
+    contents: read
+    security-events: write
+    actions: read
 
 env:
-  CARGO_TERM_COLOR: always
+    CARGO_TERM_COLOR: always
 
 jobs:
-  cargo-audit:
-    name: Cargo Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    cargo-audit:
+        name: Cargo Audit
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
+            - name: Install cargo-audit
+              run: cargo install cargo-audit
 
-      - name: Run cargo-audit
-        run: cargo audit || true
+            - name: Run cargo-audit
+              run: cargo audit || true
 
-  clippy-security:
-    name: Clippy Security Lints
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    clippy-security:
+        name: Clippy Security Lints
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+            - name: Install Rust toolchain
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: clippy
 
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings || true
+            - name: Run Clippy
+              run: cargo clippy --all-targets --all-features -- -D warnings || true
 
-  cargo-deny:
-    name: Cargo Deny
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    cargo-deny:
+        name: Cargo Deny
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Install cargo-deny
-        run: cargo install cargo-deny
+            - name: Install cargo-deny
+              run: cargo install cargo-deny
 
-      - name: Check licenses and advisories
-        run: cargo deny check || true
+            - name: Check licenses and advisories
+              run: cargo deny check || true
 
-  semgrep:
-    name: Semgrep SAST
-    runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    semgrep:
+        name: Semgrep SAST
+        runs-on: ubuntu-latest
+        container:
+            image: semgrep/semgrep
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        run: semgrep scan --config auto --sarif --output semgrep.sarif . || true
+            - name: Run Semgrep
+              run: semgrep scan --config auto --sarif --output semgrep.sarif . || true
 
-      - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: semgrep.sarif
-          category: semgrep
-        continue-on-error: true
+            - name: Upload SARIF to GitHub Security
+              uses: github/codeql-action/upload-sarif@v3
+              with:
+                  sarif_file: semgrep.sarif
+                  category: semgrep
+              continue-on-error: true
