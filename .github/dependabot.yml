@@ -28,9 +28,10 @@ updates:
     commit-message:
       prefix: "ci"
     groups:
-      actions-minor:
+      actions-all:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
+          - "major"
