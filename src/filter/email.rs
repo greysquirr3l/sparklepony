@@ -60,7 +60,6 @@ impl Default for BlacklistConfig {
                 "messaging.squareup.com".into(),
                 "dropbox.com".into(),
                 "squarespace-mail.com".into(),
-                "arksf.com".into(),
             ],
             bad_patterns: vec![
                 "test@".into(),
